@@ -1,0 +1,160 @@
+#!/bin/bash
+
+#control wifi via terminal
+
+version='0.2'
+progname=`basename $0`
+config_dir="$HOME/.wifconfig"
+interface='en0'
+
+#  Version and help.
+
+function version() {
+    echo "$progname version $version"
+}
+
+function usage() {
+	echo "Usage: wifi on | off | info | list | connect"
+	echo "Connect: wifi connect <network> [password]"
+	echo -n "currently – "; networksetup getairportpower en0 
+}
+
+function ama() {
+    version
+    echo "Usage: $progname [interface] [-v] [-h] [-d] <command> [<args>]
+
+Switches:
+    -v          Show version information and exit.
+    -h          Show this help and exit.
+    -d          Enable debug messages, additional -d options increase verbosity.
+
+wifi commands:
+    on          Enable [interface] adapter.
+    off         Disable [interface] adapter.
+
+Additional commands:
+    version     Show version information and exit.
+    help        Show this help and exit."
+}
+
+function four-o-four() {
+    echo "Unknown command '$cmd', try '$progname help' for a list of valid commands."
+}
+
+function notify() {
+	if [ "$1" = "activated" ] 
+		then
+#say "W-Lan angeschaltet"
+			terminal-notifier -message "activated" -title "Wifi" > /dev/null;
+		elif [ "$1" = "deactivated" ]
+		then
+#say "W-Lan ausgeschaltet"			
+terminal-notifier -message "deactivated" -title "Wifi" > /dev/null;
+	fi
+}
+
+function if_enable() {
+    echo 'on'
+}
+
+function if_disable() {
+    echo "off"
+}
+
+function wifi_control(){
+	if [ "$1" = "on" ]
+		then
+			networksetup -setairportpower en0 on;
+
+			if [ "$?" = 0 ]
+			then
+				notify activated;
+			fi
+
+		elif [ "$1" = "off" ]
+		then	
+			networksetup -setairportpower en0 off;
+			
+			if [ "$?" = 0 ]
+			then
+				notify deactivated;
+			fi
+	
+		elif [ "$1" = "list" ] 
+		then
+			airport -s;
+		elif [ "$1" = "info" ]
+		then
+			airport -I;
+
+
+		elif [ "$1" = "connect" ]
+		then
+			echo -n "Attempting to connect to "; echo $2;
+			networksetup -setairportnetwork en0 $2 $3;
+			echo "";
+			#if [ "$?" = 1 ]
+		else
+			usage;	
+	fi
+}
+
+function _dispatch() {
+    cmd=$1
+    shift
+    case "$cmd" in
+        #  Navigation commands.
+        on)        if_enable "$@"      ;;
+        off)       if_disable "$@"     ;;
+        stop)        _cmd_stop "$@"      ;;
+        #  Extra commands.
+        version)     version "$@"   ;;
+        ""|help)     ama "$@"      ;;
+        *)
+            if [ -f "$plugins_dir/$cmd" ]; then
+                . "$plugins_dir/$cmd"
+                _cmd_$cmd "$@"
+            else
+               _cmd_unknown "$@"
+            fi
+            ;;
+    esac
+}
+
+debug=0
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    # Being run directly, do our command processing.
+    while getopts "hvd" "OPTNAME"; do
+        case $OPTNAME in
+            h) ama;    exit 0  ;;
+            v) version; exit 0  ;;
+            d) debug=$(($debug + 1)) ;;
+            *) exit -1               ;;
+        esac
+    done
+    shift $(($OPTIND - 1))
+
+    _dispatch "$@"
+fi
+
+##wifi_control $1 $2 $3;
+
+#sudoers file so modifiziert, dass der user auch networksetup benutzen konnte
+#napcae  ALL=NOPASSWD: /usr/sbin/networksetup
+
+
+
+
+
+
+
+
+
+
+
+
+
+######todo
+
+#dns handling
+#ip handling(manual/dhcp)
